@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Upload, FileImage, FilePlus, Download, X, AlertCircle } from 'lucide-react';
+import { Upload, FileImage, FilePlus, Download, X, AlertCircle, FileEdit } from 'lucide-react';
 import ImageToPdf from './components/ImageToPdf';
 import PdfMerger from './components/PdfMerger';
+import PdfOrganizer from './components/PdfOrganizer';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'convert' | 'merge'>('convert');
+  const [activeTab, setActiveTab] = useState<'convert' | 'merge' | 'organize'>('convert');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -15,7 +16,7 @@ function App() {
             PDF <span className="text-blue-600">Toolkit</span>
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Convert images to PDF and merge multiple PDFs securely in your browser. 
+            Convert images to PDF, merge multiple PDFs, and organize PDF pages securely in your browser.
             <span className="font-semibold text-blue-600"> 100% private</span> - your files never leave your device.
           </p>
         </div>
@@ -56,12 +57,25 @@ function App() {
               <FilePlus className="w-5 h-5" />
               Merge PDFs
             </button>
+            <button
+              onClick={() => setActiveTab('organize')}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-lg font-medium transition-all duration-200 ${
+                activeTab === 'organize'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+              }`}
+            >
+              <FileEdit className="w-5 h-5" />
+              Organize PDF
+            </button>
           </div>
         </div>
 
         {/* Tab Content */}
         <div className="max-w-4xl mx-auto">
-          {activeTab === 'convert' ? <ImageToPdf /> : <PdfMerger />}
+          {activeTab === 'convert' && <ImageToPdf />}
+          {activeTab === 'merge' && <PdfMerger />}
+          {activeTab === 'organize' && <PdfOrganizer />}
         </div>
 
         {/* Footer */}
