@@ -7,6 +7,7 @@ interface PdfPage {
   id: string;
   pageNumber: number;
   thumbnail: string;
+  originalIndex: number;
 }
 
 const PdfOrganizer: React.FC = () => {
@@ -16,6 +17,8 @@ const PdfOrganizer: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
+  const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -73,6 +76,7 @@ const PdfOrganizer: React.FC = () => {
           id: `page-${i}`,
           pageNumber: i + 1,
           thumbnail,
+          originalIndex: i,
         });
       }
 
@@ -146,6 +150,7 @@ const PdfOrganizer: React.FC = () => {
           id: `page-${Date.now()}-${i}`,
           pageNumber: pages.length + i + 1,
           thumbnail,
+          originalIndex: i,
         });
       }
 
@@ -194,6 +199,46 @@ const PdfOrganizer: React.FC = () => {
     setPdfDoc(null);
     setPages([]);
     setSelectedPages(new Set());
+    setDraggedPageId(null);
+    setDragOverIndex(null);
+  };
+
+  const handlePageDragStart = (e: React.DragEvent, pageId: string) => {
+    setDraggedPageId(pageId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handlePageDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  };
+
+  const handlePageDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (!draggedPageId) return;
+
+    const draggedIndex = pages.findIndex(p => p.id === draggedPageId);
+    if (draggedIndex === -1 || draggedIndex === dropIndex) {
+      setDraggedPageId(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    setPages(prev => {
+      const newPages = [...prev];
+      const [draggedPage] = newPages.splice(draggedIndex, 1);
+      const finalIndex = draggedIndex < dropIndex ? dropIndex - 1 : dropIndex;
+      newPages.splice(finalIndex, 0, draggedPage);
+      return newPages;
+    });
+
+    setDraggedPageId(null);
+    setDragOverIndex(null);
+  };
+
+  const handlePageDragLeave = () => {
+    setDragOverIndex(null);
   };
 
   return (
@@ -299,10 +344,19 @@ const PdfOrganizer: React.FC = () => {
                 {pages.map((page, index) => (
                   <div
                     key={page.id}
-                    className={`relative group bg-gray-50 rounded-lg overflow-hidden border-2 transition-all duration-200 cursor-pointer ${
-                      selectedPages.has(page.id)
+                    draggable
+                    onDragStart={(e) => handlePageDragStart(e, page.id)}
+                    onDragOver={(e) => handlePageDragOver(e, index)}
+                    onDrop={(e) => handlePageDrop(e, index)}
+                    onDragLeave={handlePageDragLeave}
+                    className={`relative group bg-gray-50 rounded-lg overflow-hidden border-2 transition-all duration-200 cursor-move ${
+                      draggedPageId === page.id
+                        ? 'opacity-50 border-gray-400'
+                        : dragOverIndex === index
+                        ? 'border-green-500 ring-2 ring-green-200 bg-green-50'
+                        : selectedPages.has(page.id)
                         ? 'border-blue-500 ring-2 ring-blue-200'
-                        : 'border-gray-200 hover:border-blue-300'
+                        : 'border-gray-200 hover:border-blue-300 cursor-pointer'
                     }`}
                     onClick={() => togglePageSelection(page.id)}
                   >
