@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { Upload, Download, X, FileText, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { saveAs } from 'file-saver';
+import CompressionSelector from './CompressionSelector';
+import { CompressionLevel, compressPdf } from '../utils/compression';
 
 interface PdfFile {
   id: string;
@@ -14,6 +16,7 @@ const PdfMerger: React.FC = () => {
   const [pdfs, setPdfs] = useState<PdfFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('none');
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -85,18 +88,19 @@ const PdfMerger: React.FC = () => {
     setIsProcessing(true);
     try {
       const mergedPdf = await PDFDocument.create();
-      
+
       for (const pdfFile of pdfs) {
         const arrayBuffer = await pdfFile.file.arrayBuffer();
         const pdf = await PDFDocument.load(arrayBuffer);
         const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
-        
+
         copiedPages.forEach((page) => {
           mergedPdf.addPage(page);
         });
       }
 
-      const pdfBytes = await mergedPdf.save();
+      const compressedPdf = await compressPdf(mergedPdf, { level: compressionLevel });
+      const pdfBytes = await compressedPdf.save();
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const fileName = `merged-pdfs-${new Date().toISOString().split('T')[0]}.pdf`;
       saveAs(blob, fileName);
@@ -145,10 +149,15 @@ const PdfMerger: React.FC = () => {
       {/* PDF List */}
       {pdfs.length > 0 && (
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            PDF Files ({pdfs.length})
-          </h3>
-          
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="text-lg font-semibold text-gray-800">
+              PDF Files ({pdfs.length})
+            </h3>
+            <div className="w-64">
+              <CompressionSelector value={compressionLevel} onChange={setCompressionLevel} />
+            </div>
+          </div>
+
           <div className="space-y-3 mb-6">
             {pdfs.map((pdf, index) => (
               <div

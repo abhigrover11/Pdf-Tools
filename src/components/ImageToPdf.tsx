@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { Upload, Download, X, FileImage, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { saveAs } from 'file-saver';
+import CompressionSelector from './CompressionSelector';
+import { CompressionLevel, compressImageForPdf } from '../utils/compression';
 
 interface ImageFile {
   id: string;
@@ -13,6 +15,7 @@ const ImageToPdf: React.FC = () => {
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('none');
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -76,26 +79,52 @@ const ImageToPdf: React.FC = () => {
     setIsProcessing(true);
     try {
       const pdf = new jsPDF();
-      
+
       for (let i = 0; i < images.length; i++) {
         const img = images[i];
-        
-        // Create image element to get dimensions
+
         const imgElement = new Image();
         imgElement.src = img.preview;
-        
+
         await new Promise((resolve) => {
           imgElement.onload = resolve;
         });
 
-        // Calculate dimensions to fit page
+        let imageData = img.preview;
+
+        if (compressionLevel !== 'none') {
+          const canvas = document.createElement('canvas');
+          canvas.width = imgElement.width;
+          canvas.height = imgElement.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(imgElement, 0, 0);
+            const blob = await new Promise<Blob | null>((resolve) => {
+              canvas.toBlob(resolve, 'image/jpeg', 0.85);
+            });
+            if (blob) {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                imageData = e.target?.result as string;
+              };
+              await new Promise((resolve) => {
+                reader.onload = () => {
+                  imageData = reader.result as string;
+                  resolve(null);
+                };
+                reader.readAsDataURL(blob);
+              });
+            }
+          }
+        }
+
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
         const imgRatio = imgElement.width / imgElement.height;
         const pageRatio = pageWidth / pageHeight;
 
         let finalWidth, finalHeight;
-        
+
         if (imgRatio > pageRatio) {
           finalWidth = pageWidth * 0.9;
           finalHeight = finalWidth / imgRatio;
@@ -111,7 +140,7 @@ const ImageToPdf: React.FC = () => {
           pdf.addPage();
         }
 
-        pdf.addImage(img.preview, 'JPEG', x, y, finalWidth, finalHeight);
+        pdf.addImage(imageData, 'JPEG', x, y, finalWidth, finalHeight);
       }
 
       const pdfBlob = pdf.output('blob');
@@ -162,9 +191,14 @@ const ImageToPdf: React.FC = () => {
       {/* Image Preview Grid */}
       {images.length > 0 && (
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            Images ({images.length})
-          </h3>
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Images ({images.length})
+            </h3>
+            <div className="w-64">
+              <CompressionSelector value={compressionLevel} onChange={setCompressionLevel} />
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
             {images.map((img, index) => (
               <div

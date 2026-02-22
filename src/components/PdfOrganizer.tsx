@@ -2,6 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { Upload, Download, X, FileText, Loader2, Trash2, Plus } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
 import { saveAs } from 'file-saver';
+import CompressionSelector from './CompressionSelector';
+import { CompressionLevel, compressPdf } from '../utils/compression';
 
 interface PdfPage {
   id: string;
@@ -19,6 +21,7 @@ const PdfOrganizer: React.FC = () => {
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
   const [draggedPageId, setDraggedPageId] = useState<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('none');
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -181,7 +184,8 @@ const PdfOrganizer: React.FC = () => {
         }
       }
 
-      const pdfBytes = await newPdf.save();
+      const compressedPdf = await compressPdf(newPdf, { level: compressionLevel });
+      const pdfBytes = await compressedPdf.save();
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const fileName = `organized-${pdfFile!.name}`;
       saveAs(blob, fileName);
@@ -282,7 +286,7 @@ const PdfOrganizer: React.FC = () => {
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800">
                     {pdfFile.name}
@@ -292,12 +296,17 @@ const PdfOrganizer: React.FC = () => {
                     {selectedPages.size > 0 && ` (${selectedPages.size} selected)`}
                   </p>
                 </div>
-                <button
-                  onClick={resetOrganizer}
-                  className="text-gray-600 hover:text-red-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-start gap-4">
+                  <div className="w-64">
+                    <CompressionSelector value={compressionLevel} onChange={setCompressionLevel} />
+                  </div>
+                  <button
+                    onClick={resetOrganizer}
+                    className="text-gray-600 hover:text-red-600 transition-colors mt-2"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               <div className="flex gap-2 mb-6 flex-wrap">
